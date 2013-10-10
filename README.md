@@ -1,43 +1,20 @@
 # http-check
 
-Test an HTTP interface according to a simple .json file.
-
-- checks return code
-- checks body
-
-Run a test suite against an HTTP API from a .json file.
+A powerful and flexible way to make assertions against an HTTP API
 
 ## Usage
 
 ```
-http-check path/to/config.json
+http-check path/to/config.clj
 ```
 
 ## File format
 
-```json
-{
-  "vars": {
-    "scheme": "https",
-    "host": "api.github.com",
-    "headers": {}
-  },
-  "tests": [{
-    "name": "GitHub Public API",
-    "headers": "headers",
-    "paths": [
-      {
-        "path": "GET /nukes",
-        "code": 404
-      },
-      {
-        "path": "GET /users/blandinw",
-        "assert": "(= \"blandinw\" (:login json))",
-        "code": 200
-      }
-    ]
-  }]
-}
+```clojure
+(checking "Github API"
+  (with :base "https://api.github.com"
+    ($ "GET /users/blandinw" :assert #(-> % :json :login (= "blandinw")))
+    ($ "GET /nukes" :status 404)))
 ```
 
 ## License
