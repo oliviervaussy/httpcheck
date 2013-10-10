@@ -5,14 +5,15 @@ A powerful and flexible way to make assertions against an HTTP API
 ## Usage
 
 ```
-http-check path/to/config.clj
+./release.sh
+java -jar httpcheck.jar path/to/config.clj
 ```
 
 ## File format
 
 ```clojure
 (checking "Github API"
-  (with :base "https://api.github.com"
+  (with :base "https://api.github.com" :status 200
     ($ "GET /users/blandinw" :assert #(-> % :json :login (= "blandinw")))
     ($ "GET /nukes" :status 404)))
 ```
