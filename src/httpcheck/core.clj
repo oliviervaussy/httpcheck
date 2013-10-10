@@ -37,7 +37,7 @@
 (defn output-ko
   "Takes a diagnostic object and output it"
   [{:keys [path-spec status ok assert resp-body]}]
-  (let [{:keys [method path query] req-body :body} path-spec
+  (let [{:keys [method path query t] req-body :body} path-spec
         method (if (= "DELETE" method) "DEL" method)
         ?>conj (fn [vec cond k v & fmt-args]
                  (if-not cond
@@ -47,6 +47,7 @@
                              (apply format v (flatten fmt-args)))]
                      (conj vec (str k ": " v)))))
         diags (-> []
+                  (?>conj t "t" t)
                   (?>conj (not-empty query) "query" (pr-str query))
                   (?>conj assert
                           "assert"
@@ -127,9 +128,12 @@
 
 (defn check-api! [{:keys [paths name] :as api-spec}]
   (println (format "Checking %s (%d paths)" name (count paths)))
-  (let [path-results (mapv check-path! paths)]
-    (<!! (go (doseq [r path-results]
-               (report-path! (<! r)))))))
+  (let [t-groups (->> (group-by :t paths)
+                      (sort-by key)
+                      vals)]
+    (doseq [paths t-groups]
+      (<!! (go (doseq [r (mapv check-path! paths)]
+                 (report-path! (<! r))))))))
 
 ;; -----------------------------------------------------------------------------
 ;; Public API

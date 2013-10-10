@@ -21,6 +21,7 @@
     (map->PathSpec (-> args
                        (assoc :method meth :path path)
                        (update-in [:status] #(or % 200))
+                       (update-in [:t] #(or % 0))
                        (?> (and body (not (string? body)))
                            assoc :body (j/encode body))))))
 
