@@ -36,25 +36,32 @@
 
 (defn output-ko
   "Takes a diagnostic object and output it"
-  [{:keys [path-spec status ok assert]}]
+  [{:keys [path-spec status ok assert resp-body]}]
   (let [{:keys [method path query] req-body :body} path-spec
         method (if (= "DELETE" method) "DEL" method)
-        query (if-not (empty? query)
-                (format "\n   - query: %s" (pr-str query))
-                "")
-        assert (if assert
-                 (format "\n   - assert: expected=%s actual=%s body=%s"
-                         (:expected assert) (:actual assert) (:body assert))
-                 "")
-        status (if status
-                 (format "\n   - status: expected=%s actual=%s"
-                         (:expected status) (:actual status))
-                 "")
-        req-body (if req-body
-                   (format "\n   - request body:\n<<EOF\n%s\nEOF" req-body)
-                   "")]
-    (-> (format "%s %s %s%s%s%s%s"
-                (red "KO") method path query assert status req-body)
+        ?>conj (fn [vec cond k v & fmt-args]
+                 (if-not cond
+                   vec
+                   (let [v (if-not fmt-args
+                             v
+                             (apply format v (flatten fmt-args)))]
+                     (conj vec (str k ": " v)))))
+        diags (-> []
+                  (?>conj (not-empty query) "query" (pr-str query))
+                  (?>conj assert
+                          "assert"
+                          "expected=%s actual=%s body=%s"
+                          ((juxt :expected :actual :body) assert))
+                  (?>conj status
+                          "status"
+                          "expected=%s actual=%s"
+                          ((juxt :expected :actual) status))
+                  (?>conj req-body "request body" "\n%s" req-body)
+                  (?>conj resp-body "response body" "\n%s" resp-body)
+                  (->> (map (partial str "- "))
+                       (string/join "\n")))]
+    (-> (format "%s %s %s\n%s"
+                (red "KO") method path diags)
         println)))
 
 (defn report-path! [{:keys [ok] :as diag}]
@@ -90,6 +97,7 @@
         [assert-ok? assert-exp assert-act assert-body] (check-assertion assert headers resp-body)
         ok? (and status-ok? assert-ok?)]
     (-> {:path-spec path-spec :ok ok?}
+        (?> (and resp-body (not ok?)) assoc :resp-body resp-body)
         (?> (not status-ok?) assoc :status {:expected status :actual resp-status})
         (?> (not assert-ok?) assoc :assert {:expected assert-exp
                                             :actual assert-act
@@ -108,7 +116,9 @@
             "PATCH"   #'client/patch
             "DELETE"  #'client/delete
             "HEAD"    #'client/head
-            "OPTIONS" #'client/options)
+            "OPTIONS" #'client/options
+            :else (throw (ex-info (format "Could not match method \"%s\"" method)
+                                  {:path path-spec})))
         path (format "%s%s" base path)]
     (f path opts (fn [resp]
                    (put! out (diagnose path-spec resp))

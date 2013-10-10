@@ -1,4 +1,5 @@
 (ns httpcheck.reader
+  (:use [plumbing.core])
   (:require [clojure.walk :as w]
             [cheshire.core :as j]
             [httpcheck.utils :as u]
@@ -10,19 +11,18 @@
 
 (defn $ [& args]
   (let [[url & {:as args}] (if (string? (first args)) args (cons nil args))
-        {:keys [url] :as args} (if url (assoc args :url url) args)
+        {:keys [url body] :as args} (if url (assoc args :url url) args)
         [_ meth path] (re-find #"(GET|POST|PUT|DELETE|OPTIONS|HEAD|PATCH)\s+(.*)"
                                url)]
     (when-not (and meth path)
-      (throw (ex-info (format "could not find method and/or path url=%s"
-                              url)
+      (throw (ex-info (format "Could not find method and/or path url=%s" url)
                       {:args args})))
+
     (map->PathSpec (-> args
                        (assoc :method meth :path path)
                        (update-in [:status] #(or % 200))
-                       (update-in [:body] #(if (and % (not (string? %)))
-                                             (j/encode %)
-                                             %))))))
+                       (?> (and body (not (string? body)))
+                           assoc :body (j/encode body))))))
 
 (defn $? [form]
   (boolean (when (seq? form)
