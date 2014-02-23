@@ -4,7 +4,8 @@
             [cheshire.core :as j]
             [httpcheck.utils :as u]
             [httpcheck.types :refer [map->PathSpec]])
-  (:import [httpcheck.types APISpec]))
+  (:import [java.io InputStream]
+           [httpcheck.types APISpec]))
 
 (def ^:dynamic *config-dir*)
 (def specs (atom #{}))
@@ -22,7 +23,7 @@
                        (assoc :method meth :path path)
                        (update-in [:status] #(or % 200))
                        (update-in [:t] #(or % 0))
-                       (?> (and body (not (string? body)))
+                       (?> (and body (not (string? body)) (not (instance? InputStream body)))
                            assoc :body (j/encode body))))))
 
 (defn $? [form]
