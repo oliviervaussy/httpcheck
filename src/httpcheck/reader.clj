@@ -42,8 +42,12 @@
                (cons string (concat (mapcat seq mappings) args))
                (concat (mapcat seq mappings) args)))))
 
+(defn with-or-$? [form]
+  (and (seq? form) (let [sym (first form)]
+                     (or (= '$ sym) (= 'with sym)))))
+
 (defmacro with [& args]
-  (let [[{:as mappings} forms] (split-with (complement seq?) args)]
+  (let [[{:as mappings} forms] (split-with (complement with-or-$?) args)]
     (map #(augment-with-bindings % mappings) forms)))
 
 (defmacro checking [name & forms]

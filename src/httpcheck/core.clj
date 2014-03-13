@@ -66,7 +66,8 @@
         println)))
 
 (defn report-path! [{:keys [ok] :as diag}]
-  ((if ok output-ok output-ko) diag))
+  ((if ok output-ok output-ko) diag)
+  diag)
 
 ;; -----------------------------------------------------------------------------
 ;; Checkers
@@ -131,9 +132,14 @@
   (let [t-groups (->> (group-by :t paths)
                       (sort-by key)
                       vals)]
-    (doseq [paths t-groups]
-      (<!! (go (doseq [r (mapv check-path! paths)]
-                 (report-path! (<! r))))))))
+    (->> t-groups
+         (mapv #(<!! (go (->> (mapv check-path! %)
+                              a/merge
+                              (a/map< report-path!)
+                              (a/reduce (fn [acc v] (and acc (:ok v)))
+                                        true)
+                              <!))))
+         (reduce #(and %1 %2) true))))
 
 ;; -----------------------------------------------------------------------------
 ;; Public API
@@ -142,9 +148,12 @@
   (->> path
        reader/filepath->api-spec!
        (map check-api!)
-       dorun))
+       (reduce #(and %1 %2) true)))
 
 (defn -main [& [path]]
   (if-not path
-    (println "usage: http-check path/to/config")
-    (check! path)))
+    (do (println "usage: http-check path/to/config")
+        (System/exit 1))
+    (if (check! path)
+      (System/exit 0)
+      (System/exit 1))))
