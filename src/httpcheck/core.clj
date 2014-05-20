@@ -105,12 +105,12 @@
                                             :actual assert-act
                                             :body assert-body}))))
 
-(defn check-path! [{:keys [base method path headers query status body] :as path-spec}]
+(defn check-path! [{:keys [base method path headers query status body http-opts] :as path-spec}]
   (let [out (chan)
-        opts {:headers headers
-              :query-params query
-              :body body
-              :as :text}
+        opts (merge {:headers headers
+                     :query-params query
+                     :body body
+                     :as :text} http-opts)
         f (match method
             "GET"     #'client/get
             "POST"    #'client/post
